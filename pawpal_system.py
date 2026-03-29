@@ -53,10 +53,7 @@ class Task:
         return self.due_datetime.date() == date.today()
 
     def generate_next_occurrence(self) -> Optional[Task]:
-        """
-        If this task recurs, return a new Task for the next occurrence.
-        Returns None if recurrence is NONE.
-        """
+        """Return a new Task for the next occurrence, or None if non-recurring."""
         if self.recurrence == Recurrence.NONE:
             return None
 
@@ -147,10 +144,7 @@ class Scheduler:
     # --- Population ---
 
     def load_from_owner(self, owner: Owner) -> None:
-        """
-        Pull all tasks from every pet owned by the given Owner into the
-        Scheduler's task list (avoids duplicates by ID).
-        """
+        """Import all tasks from every pet belonging to the given Owner, skipping duplicates."""
         existing_ids = {t.id for t in self.tasks}
         for task in owner.get_all_tasks():
             if task.id not in existing_ids:
@@ -172,10 +166,7 @@ class Scheduler:
         return [t for t in self.tasks if t.is_due_today() and not t.is_complete]
 
     def get_tasks_for_pet(self, pet: Pet) -> list[Task]:
-        """
-        Return all scheduled tasks that belong to a specific pet.
-        Matching is done by task ID against the pet's own task list.
-        """
+        """Return all scheduler tasks that belong to the given pet, matched by task ID."""
         pet_task_ids = {t.id for t in pet.tasks}
         return [t for t in self.tasks if t.id in pet_task_ids]
 
@@ -186,11 +177,7 @@ class Scheduler:
         return sorted(tasks, key=lambda t: t.priority)
 
     def detect_conflicts(self, pet: Pet) -> list[tuple[Task, Task]]:
-        """
-        Detect scheduling conflicts for a pet.
-        A conflict occurs when two tasks share the exact same due_datetime.
-        Returns a list of (task_a, task_b) conflict pairs.
-        """
+        """Return pairs of tasks for the given pet that share the same due_datetime."""
         pet_tasks = self.get_tasks_for_pet(pet)
         conflicts: list[tuple[Task, Task]] = []
 
@@ -202,10 +189,7 @@ class Scheduler:
         return conflicts
 
     def generate_recurring_tasks(self) -> None:
-        """
-        Scan completed recurring tasks and append the next occurrence to the
-        scheduler if it hasn't already been scheduled.
-        """
+        """Append the next occurrence for each completed recurring task not yet scheduled."""
         existing_titles_datetimes = {(t.title, t.due_datetime) for t in self.tasks}
         new_tasks: list[Task] = []
 
