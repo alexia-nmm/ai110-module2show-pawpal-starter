@@ -34,6 +34,33 @@ Beyond basic task storage, the `Scheduler` class includes several algorithms tha
 
 **Conflict detection** — `get_conflict_warnings()` scans all incomplete tasks grouped by timestamp and uses `itertools.combinations` to find every conflicting pair. It catches two types: same-pet conflicts (a pet can't be in two places) and owner-overlap conflicts (the owner can't attend two different pets at the same time). Each conflict surfaces as a plain warning string rather than an exception.
 
+## Testing PawPal+
+
+### Running the tests
+
+```bash
+python -m pytest tests/test_pawpal.py -v
+```
+
+### What the tests cover
+
+The suite has 20 tests across four areas:
+
+| Area | Tests | What's verified |
+| Sorting | 4 | Chronological order, priority tiebreaker, empty-list safety, priority-ascending sort |
+
+| Recurrence| 5 | Daily/weekly next-occurrence dates, non-recurring returns `None`, next task lands on the pet, unknown task ID is handled silently |
+
+| Conflict detection | 5 | No false positives at different times, same-pet clash, cross-pet owner overlap, completed tasks excluded from checks, owner with no pets |
+
+| Filtering & loading | 4 | Status filter, per-pet filter, unknown pet name, duplicate-free loading |
+
+### Confidence level
+
+**4 / 5 stars**
+
+The core scheduling behaviors — sorting, filtering, recurring task generation, and conflict detection — are all covered with both happy-path and edge-case tests, and all 20 pass. The one star held back is for what isn't tested yet: monthly recurrence edge cases (e.g. January 31 → March 1 skip), the Streamlit UI layer, and `generate_recurring_tasks()` as a batch operation. Those would be the next tests to write.
+
 ## Getting started
 
 ### Setup
