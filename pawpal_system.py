@@ -1,19 +1,16 @@
 """
 pawpal_system.py
-PawPal+ Backend Logic Layer — Class Skeletons
+PawPal+ Backend Logic Layer — Core Implementation
 """
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from enum import Enum
 from typing import Optional
 import uuid
 
 
-# ---------------------------------------------------------------------------
-# Enumerations
-# ---------------------------------------------------------------------------
 
 class TaskType(Enum):
     FEEDING = "feeding"
@@ -30,9 +27,7 @@ class Recurrence(Enum):
     MONTHLY = "monthly"
 
 
-# ---------------------------------------------------------------------------
-# Dataclasses
-# ---------------------------------------------------------------------------
+
 
 @dataclass
 class Task:
@@ -47,22 +42,44 @@ class Task:
 
     def complete(self) -> None:
         """Mark this task as completed."""
-        pass
+        self.is_complete = True
 
     def reschedule(self, new_datetime: datetime) -> None:
         """Update the task's due date/time."""
-        pass
+        self.due_datetime = new_datetime
 
     def is_due_today(self) -> bool:
         """Return True if the task is due today."""
-        pass
+        return self.due_datetime.date() == date.today()
 
     def generate_next_occurrence(self) -> Optional[Task]:
         """
         If this task recurs, return a new Task for the next occurrence.
         Returns None if recurrence is NONE.
         """
-        pass
+        if self.recurrence == Recurrence.NONE:
+            return None
+
+        if self.recurrence == Recurrence.DAILY:
+            next_dt = self.due_datetime + timedelta(days=1)
+        elif self.recurrence == Recurrence.WEEKLY:
+            next_dt = self.due_datetime + timedelta(weeks=1)
+        elif self.recurrence == Recurrence.MONTHLY:
+            month = self.due_datetime.month + 1
+            year = self.due_datetime.year + (month - 1) // 12
+            month = ((month - 1) % 12) + 1
+            next_dt = self.due_datetime.replace(year=year, month=month)
+
+        return Task(
+            title=self.title,
+            task_type=self.task_type,
+            due_datetime=next_dt,
+            priority=self.priority,
+            recurrence=self.recurrence,
+            notes=self.notes,
+        )
+
+
 
 
 @dataclass
@@ -76,24 +93,22 @@ class Pet:
 
     def add_task(self, task: Task) -> None:
         """Add a task to this pet's task list."""
-        pass
+        self.tasks.append(task)
 
     def remove_task(self, task_id: str) -> None:
         """Remove a task by its ID."""
-        pass
+        self.tasks = [t for t in self.tasks if t.id != task_id]
 
     def get_tasks(self) -> list[Task]:
         """Return all tasks for this pet."""
-        pass
+        return list(self.tasks)
 
     def get_tasks_by_date(self, target_date: date) -> list[Task]:
         """Return tasks due on a specific date."""
-        pass
+        return [t for t in self.tasks if t.due_datetime.date() == target_date]
 
 
-# ---------------------------------------------------------------------------
-# Regular Classes
-# ---------------------------------------------------------------------------
+
 
 class Owner:
     def __init__(self, name: str, email: str) -> None:
@@ -103,52 +118,102 @@ class Owner:
 
     def add_pet(self, pet: Pet) -> None:
         """Register a new pet under this owner."""
-        pass
+        self.pets.append(pet)
 
     def remove_pet(self, pet_name: str) -> None:
         """Remove a pet by name."""
-        pass
+        self.pets = [p for p in self.pets if p.name != pet_name]
 
     def get_all_tasks(self) -> list[Task]:
         """Aggregate and return all tasks across all pets."""
-        pass
+        return [task for pet in self.pets for task in pet.tasks]
+
+
 
 
 class Scheduler:
+    """
+    The Scheduler maintains its own flat task list and works with Owner/Pet
+    objects passed in by the caller — it does not hold a reference to an Owner.
+
+    Typical flow:
+        scheduler.load_from_owner(owner)   # pull in all tasks
+        scheduler.get_todays_tasks()       # work with them
+    """
+
     def __init__(self) -> None:
         self.tasks: list[Task] = []
 
+    # --- Population ---
+
+    def load_from_owner(self, owner: Owner) -> None:
+        """
+        Pull all tasks from every pet owned by the given Owner into the
+        Scheduler's task list (avoids duplicates by ID).
+        """
+        existing_ids = {t.id for t in self.tasks}
+        for task in owner.get_all_tasks():
+            if task.id not in existing_ids:
+                self.tasks.append(task)
+                existing_ids.add(task.id)
+
     def add_task(self, task: Task) -> None:
-        """Add a task to the scheduler."""
-        pass
+        """Add a single task to the scheduler."""
+        self.tasks.append(task)
 
     def remove_task(self, task_id: str) -> None:
         """Remove a task by ID."""
-        pass
+        self.tasks = [t for t in self.tasks if t.id != task_id]
+
+    # --- Retrieval ---
 
     def get_todays_tasks(self) -> list[Task]:
-        """Return all tasks due today."""
-        pass
+        """Return all incomplete tasks due today."""
+        return [t for t in self.tasks if t.is_due_today() and not t.is_complete]
 
     def get_tasks_for_pet(self, pet: Pet) -> list[Task]:
-        """Return all scheduled tasks for a specific pet."""
-        pass
+        """
+        Return all scheduled tasks that belong to a specific pet.
+        Matching is done by task ID against the pet's own task list.
+        """
+        pet_task_ids = {t.id for t in pet.tasks}
+        return [t for t in self.tasks if t.id in pet_task_ids]
+
+    # --- Organisation ---
 
     def sort_by_priority(self, tasks: list[Task]) -> list[Task]:
-        """Return tasks sorted by priority (ascending = highest first)."""
-        pass
+        """Return tasks sorted by priority ascending (1 = highest first)."""
+        return sorted(tasks, key=lambda t: t.priority)
 
     def detect_conflicts(self, pet: Pet) -> list[tuple[Task, Task]]:
         """
         Detect scheduling conflicts for a pet.
-        A conflict occurs when two tasks overlap in time.
-        Returns a list of conflicting task pairs.
+        A conflict occurs when two tasks share the exact same due_datetime.
+        Returns a list of (task_a, task_b) conflict pairs.
         """
-        pass
+        pet_tasks = self.get_tasks_for_pet(pet)
+        conflicts: list[tuple[Task, Task]] = []
+
+        for i, task_a in enumerate(pet_tasks):
+            for task_b in pet_tasks[i + 1:]:
+                if task_a.due_datetime == task_b.due_datetime:
+                    conflicts.append((task_a, task_b))
+
+        return conflicts
 
     def generate_recurring_tasks(self) -> None:
         """
-        Scan completed recurring tasks and generate their next occurrences
-        if not already scheduled.
+        Scan completed recurring tasks and append the next occurrence to the
+        scheduler if it hasn't already been scheduled.
         """
-        pass
+        existing_titles_datetimes = {(t.title, t.due_datetime) for t in self.tasks}
+        new_tasks: list[Task] = []
+
+        for task in self.tasks:
+            if task.is_complete and task.recurrence != Recurrence.NONE:
+                next_task = task.generate_next_occurrence()
+                if next_task and (next_task.title, next_task.due_datetime) not in existing_titles_datetimes:
+                    new_tasks.append(next_task)
+                    existing_titles_datetimes.add((next_task.title, next_task.due_datetime))
+
+        self.tasks.extend(new_tasks)
