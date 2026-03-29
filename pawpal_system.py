@@ -4,9 +4,11 @@ PawPal+ Backend Logic Layer — Core Implementation
 """
 
 from __future__ import annotations
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, date, timedelta
 from enum import Enum
+from itertools import combinations
 from typing import Optional
 import uuid
 
@@ -177,15 +179,48 @@ class Scheduler:
         return sorted(tasks, key=lambda t: t.priority)
 
     def sort_by_time(self, tasks: list[Task]) -> list[Task]:
-        """Return tasks sorted chronologically; priority is the tiebreaker."""
+        """Return tasks sorted in chronological order.
+
+        Tasks with the same due_datetime are ordered by priority ascending
+        (1 = highest), so the most urgent same-time task appears first.
+
+        Args:
+            tasks: The list of Task objects to sort.
+
+        Returns:
+            A new list sorted by (due_datetime, priority).
+        """
         return sorted(tasks, key=lambda t: (t.due_datetime, t.priority))
 
     def filter_by_status(self, tasks: list[Task], complete: bool) -> list[Task]:
-        """Return only tasks whose is_complete matches the given status."""
+        """Filter tasks by their completion status.
+
+        Args:
+            tasks:    The list of Task objects to filter.
+            complete: Pass True to return only completed tasks,
+                      False to return only incomplete tasks.
+
+        Returns:
+            A new list containing only tasks whose is_complete matches
+            the requested status.
+        """
         return [t for t in tasks if t.is_complete == complete]
 
     def filter_by_pet(self, tasks: list[Task], pet_name: str, owner: Owner) -> list[Task]:
-        """Return only tasks belonging to the named pet."""
+        """Return only the tasks that belong to a specific pet.
+
+        Looks up the pet by name from the owner's pet list, then cross-references
+        task IDs so only tasks registered on that pet are returned.
+
+        Args:
+            tasks:    The list of Task objects to filter.
+            pet_name: The name of the pet to filter by.
+            owner:    The Owner whose pets list is searched.
+
+        Returns:
+            A filtered list of tasks belonging to the named pet,
+            or an empty list if no pet with that name is found.
+        """
         pet = next((p for p in owner.pets if p.name == pet_name), None)
         if pet is None:
             return []
@@ -203,6 +238,83 @@ class Scheduler:
                     conflicts.append((task_a, task_b))
 
         return conflicts
+
+    def get_conflict_warnings(self, owner: Owner) -> list[str]:
+        """Return human-readable warning strings for every scheduling conflict.
+
+        Scans all incomplete tasks across the owner's pets and groups them by
+        due_datetime. Any time slot with two or more tasks is a conflict.
+        Two conflict types are reported:
+          - Same-pet: two tasks for the same pet share an exact timestamp.
+          - Owner overlap: tasks for different pets share an exact timestamp,
+            meaning the owner cannot attend both at once.
+
+        Uses itertools.combinations to generate unique task pairs — no pair
+        is reported more than once.
+
+        Args:
+            owner: The Owner whose pets and tasks are scanned.
+
+        Returns:
+            A list of warning strings, one per conflicting pair.
+            Returns an empty list if no conflicts are found.
+        """
+        time_fmt = "%I:%M %p on %Y-%m-%d"
+        time_map: dict[datetime, list[tuple[str, Task]]] = defaultdict(list)
+
+        for pet in owner.pets:
+            for task in pet.tasks:
+                if not task.is_complete:
+                    time_map[task.due_datetime].append((pet.name, task))
+
+        warnings: list[str] = []
+        for due_dt, entries in time_map.items():
+            for (pet_a, task_a), (pet_b, task_b) in combinations(entries, 2):
+                time_str = due_dt.strftime(time_fmt)
+                if pet_a == pet_b:
+                    warnings.append(
+                        f"WARNING [{pet_a}]: '{task_a.title}' and '{task_b.title}' "
+                        f"are both scheduled at {time_str}."
+                    )
+                else:
+                    warnings.append(
+                        f"WARNING [owner overlap]: '{task_a.title}' ({pet_a}) and "
+                        f"'{task_b.title}' ({pet_b}) are both scheduled at {time_str}."
+                    )
+
+        return warnings
+
+    def mark_task_complete(self, task_id: str, pet: Pet) -> Optional[Task]:
+        """Mark a task done and automatically create its next occurrence if recurring.
+
+        Looks up the task by ID, calls task.complete() to flip its status, then
+        calls generate_next_occurrence(). If the task recurs (daily/weekly/monthly),
+        the new Task is appended to both the scheduler's own list and the pet's
+        task list so it shows up in all future queries without any manual step.
+
+        Daily recurrence uses timedelta(days=1), weekly uses timedelta(weeks=1),
+        and monthly advances the calendar month by one.
+
+        Args:
+            task_id: The UUID string of the task to complete.
+            pet:     The Pet that owns the task, used to register the next occurrence.
+
+        Returns:
+            The newly created Task for the next occurrence,
+            or None if the task is non-recurring or the ID is not found.
+        """
+        task = next((t for t in self.tasks if t.id == task_id), None)
+        if task is None:
+            return None
+
+        task.complete()                                  # flip is_complete = True
+
+        next_task = task.generate_next_occurrence()      # timedelta already handled in Task
+        if next_task:
+            self.tasks.append(next_task)                 # scheduler sees it
+            pet.add_task(next_task)                      # pet owns it
+
+        return next_task
 
     def generate_recurring_tasks(self) -> None:
         """Append the next occurrence for each completed recurring task not yet scheduled."""

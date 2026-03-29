@@ -22,6 +22,18 @@ Your final app should:
 - Display the plan clearly (and ideally explain the reasoning)
 - Include tests for the most important scheduling behaviors
 
+## Smarter Scheduling
+
+Beyond basic task storage, the `Scheduler` class includes several algorithms that make the schedule actually useful:
+
+**Chronological sorting** — `sort_by_time()` orders tasks by `due_datetime` so the daily view reads like a real agenda. When two tasks land at the same time, priority breaks the tie so the more urgent one appears first.
+
+**Flexible filtering** — `filter_by_status()` separates done tasks from pending ones, and `filter_by_pet()` narrows the view to a single pet. Both return new lists so the original data is never mutated.
+
+**Automatic recurring tasks** — `mark_task_complete()` does more than flip a flag. When a recurring task is completed, it immediately generates the next occurrence using Python's `timedelta` (daily = +1 day, weekly = +7 days, monthly = +1 calendar month) and registers it on both the scheduler and the pet — no manual follow-up needed.
+
+**Conflict detection** — `get_conflict_warnings()` scans all incomplete tasks grouped by timestamp and uses `itertools.combinations` to find every conflicting pair. It catches two types: same-pet conflicts (a pet can't be in two places) and owner-overlap conflicts (the owner can't attend two different pets at the same time). Each conflict surfaces as a plain warning string rather than an exception.
+
 ## Getting started
 
 ### Setup

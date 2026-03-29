@@ -27,13 +27,13 @@ I initially used a simpler skeletonthat used plain strings for task type and rec
 
 **a. Constraints and priorities**
 
-- What constraints does your scheduler consider (for example: time, priority, preferences)?
-- How did you decide which constraints mattered most?
+The scheduler looks at three things: when a task is due (time), how urgent it is (priority), and whether it's already been done (completion status). Time comes first because pet care stuff is time-sensitive — you can't feed a pet "whenever." Priority is the tiebreaker when two tasks land at the same time, so something like a vet appointment wins over a grooming session. Completion status keeps the schedule clean so finished tasks don't clutter the view or trigger false conflict warnings.
 
 **b. Tradeoffs**
 
-- Describe one tradeoff your scheduler makes.
-- Why is that tradeoff reasonable for this scenario?
+The scheduler only flags a conflict when two tasks share the exact same `due_datetime` down to the minute. It doesn't know how long a task takes, so a 30-minute walk at 9:00 AM and a grooming at 9:20 AM won't trigger any warning even though they clearly overlap in real life.
+
+This is fine for now because `Task` doesn't have a duration field, and honestly guessing how long a vet visit takes would probably cause more false alarms than it prevents. The exact-match approach is simple and predictable. If this were a real app, the next step would be adding an optional `duration_minutes` to `Task` and updating the conflict check to compare time windows instead of single timestamps.
 
 ---
 
