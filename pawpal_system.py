@@ -176,6 +176,22 @@ class Scheduler:
         """Return tasks sorted by priority ascending (1 = highest first)."""
         return sorted(tasks, key=lambda t: t.priority)
 
+    def sort_by_time(self, tasks: list[Task]) -> list[Task]:
+        """Return tasks sorted chronologically; priority is the tiebreaker."""
+        return sorted(tasks, key=lambda t: (t.due_datetime, t.priority))
+
+    def filter_by_status(self, tasks: list[Task], complete: bool) -> list[Task]:
+        """Return only tasks whose is_complete matches the given status."""
+        return [t for t in tasks if t.is_complete == complete]
+
+    def filter_by_pet(self, tasks: list[Task], pet_name: str, owner: Owner) -> list[Task]:
+        """Return only tasks belonging to the named pet."""
+        pet = next((p for p in owner.pets if p.name == pet_name), None)
+        if pet is None:
+            return []
+        pet_ids = {t.id for t in pet.tasks}
+        return [t for t in tasks if t.id in pet_ids]
+
     def detect_conflicts(self, pet: Pet) -> list[tuple[Task, Task]]:
         """Return pairs of tasks for the given pet that share the same due_datetime."""
         pet_tasks = self.get_tasks_for_pet(pet)
