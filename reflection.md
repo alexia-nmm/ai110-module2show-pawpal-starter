@@ -20,6 +20,7 @@ Scheduler:  holds list of tasks. User can sort by priority, detect conflicts, ge
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
 
+I initially used a simpler skeletonthat used plain strings for task type and recurrence. I switched to a more complete version still using AI's feedback and ideas that uses Python dataclasses for Task and Pet, adds TaskType and Recurrence enums, and includes a uuid for unique task IDs. This makes the system more robust and easier to build on in later phases.
 ---
 
 ## 2. Scheduling Logic and Tradeoffs
