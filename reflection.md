@@ -4,8 +4,16 @@
 
 **a. Initial design**
 
-- Briefly describe your initial UML design.
-- What classes did you include, and what responsibilities did you assign to each?
+Add a pet: Owner registers a pet with its info (name, species, age, etc.)
+Schedule a task: Owner creates a task for a pet (feeding, walk, medication, vet appointment)
+View today's tasks:  System shows all tasks due today, sorted by priority/time
+
+Building Blocks: 
+Owner: holds name, email, list of pets. User can add/remove pets, get all tasks
+Pet : holds name, species, breed, age, weight. User can add/remove tasks, get tasks by date
+Task: holds title, type, due date, priority, recurrence . User can be completed, rescheduled, check if due today
+Scheduler:  holds list of tasks. User can sort by priority, detect conflicts, generate recurring tasks
+
 
 **b. Design changes**
 
