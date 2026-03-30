@@ -38,9 +38,13 @@ Conflicts are returned as plain warning strings and displayed via `st.warning` i
 
 <a href="/course_images/ai110/UML-petcare.png" target="_blank"><img src='/course_images/ai110/UML-petcare.png' title='PawPal UML' width='' alt='PawPal UML' class='center-block' /></a>
 
+![PawPal UML](UML-petcare.png)
+
 ##  Demo
 
 <a href="/course_images/ai110/Demo.png" target="_blank"><img src='/course_images/ai110/Demo.png' title='PawPal App' width='' alt='PawPal App' class='center-block' /></a>
+
+![PawPal+ Demo](Demo.png)
 
 
 ## Project Structure
